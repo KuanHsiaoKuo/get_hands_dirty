@@ -9,3 +9,7 @@
 ### examples
 
 存放各种示例爬虫
+
+```shell
+cargo run --example <exampels中的示例文件>
+```

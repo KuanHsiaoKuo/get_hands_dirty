@@ -1,6 +1,17 @@
+use regex::Regex;
 use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
 use select::{document::Document, predicate::Attr};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+struct DailyItem {
+    pub title: String,
+    // 日报标题
+    pub url: String,
+    // url 地址
+    pub publish_date: String,    // 日报日期
+}
 
 async fn get_page(url: &str, client: &Client) -> Result<Document, reqwest::Error> {
     let mut headers = HeaderMap::new();
@@ -28,25 +39,50 @@ async fn get_page(url: &str, client: &Client) -> Result<Document, reqwest::Error
     Ok(Document::from(body.as_str()))
 }
 
+// fn get_publish_date<'a>(title: String) -> &'a str{
+//     let date_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
+//     let publish_date = date_re.captures(title.as_str()).unwrap().get(1).unwrap().as_str();
+//     publish_date // returns a value referencing data owned by the current function
+// }
+
+fn get_publish_date(title: String) -> String {
+    let date_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
+    let publish_date = date_re.captures(title.as_str()).unwrap().get(1).unwrap().as_str();
+    publish_date.to_string()
+}
+
+
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let client = Client::new();
     let base_url = "https://rustcc.cn/section?id=f4703117-7e6b-4caf-aa22-a3ad3db6898f";
 
     let document = get_page(base_url, &client).await?;
-
     let title_class = "title left";
     // let exist_elements = document.find(Class(title_class));
     let exist_elements = document.find(Attr("class", title_class));
-    // println!("get nodes length: {}", exist_elements.clone().count());
-    if exist_elements.count() == 0 {
+    let exist_ele_vec = document.find(Attr("class", title_class)).collect::<Vec<_>>();
+    let exist_count = exist_ele_vec.len();
+    if exist_count == 0 {
+        // if exist_elements.clone().count() == 0 {
         println!("No elements found with `{}`", title_class);
     } else {
         println!("found");
-        for node in document.find(Attr("class", title_class)) {
+        for node in exist_elements {
+            // for node in document.find(Attr("class", title_class)) {
             let title = node.text();
-            let link = node.attr("href").unwrap_or("");
-            println!("Title: {}\nLink: {}\n", title, link);
+            let url = node.attr("href").unwrap_or("");
+            // {
+            //     let publish_date = date_re.captures(title.as_str()).unwrap().get(1).unwrap().as_str();
+            // }
+            // let publish_date = {
+            //     let temp = date_re.captures(title.as_str()).unwrap().get(1).unwrap().as_str();
+            //     temp
+            // };
+            let publish_date = get_publish_date(title.clone());
+            println!("Title: {}\nLink: {}\n", title, url);
+            let node_item = DailyItem { title, url: url.to_string(), publish_date };
+            println!("node_item: {}\n", serde_json::to_string(&node_item).unwrap());
         }
     }
 
