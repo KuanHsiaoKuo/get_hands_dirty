@@ -55,18 +55,15 @@ fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
         .join("&")
 }
 
-fn get_publish_date(title: String) -> &'static str{
+fn get_publish_date(title: &str) -> String{
     let date_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
     // let publish_date = date_re.captures(title.as_str()).unwrap().get(1).unwrap().as_str();
     // ----------------------------------------------------^^^^^^ here to match.
-    let publish_date = match date_re.captures(title.as_str()) {
-        Some(captured) => captured.get(1).unwrap().as_str(), // 这里unwrap()之后只有as_str()方法, 没有to_string()
+    let publish_date = match date_re.captures(title) {
+        Some(captured) => captured.get(1).unwrap().as_str().to_string(), // 这里unwrap()之后只有as_str()方法, 没有to_string()
         // None => format!("Unable to extract date from {}", title).as_str() // temporary value is freed at the end of this statement
         // None => "Unable to extract date from {title}" // str is equal to &'static str ?
-        None => {
-            let temp = format!("Unable to extract date from {}", title);
-            &temp[..]
-        }
+        None => format!("Unable to extract date from {}", title)
     };
     publish_date
 }
@@ -87,7 +84,7 @@ async fn page_extractor<'a>(document: Document, page: i32) -> Option<Vec<DailyIt
         for node in exist_elements {
             let title = node.text();
             let url = node.attr("href").unwrap_or("");
-            let publish_date = get_publish_date(title.clone());
+            let publish_date = get_publish_date(title.as_str());
             println!("Title: {}\nLink: {}\n", title, url);
             let node_item = DailyItem { title, url: url.to_string(), publish_date: publish_date.to_string() };
             println!("node_item: {}\n", serde_json::to_string(&node_item).unwrap());
