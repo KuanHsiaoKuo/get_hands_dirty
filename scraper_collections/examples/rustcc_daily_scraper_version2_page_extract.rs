@@ -3,6 +3,7 @@ use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
 use select::{document::Document, document::Find, predicate::Attr};
 use serde::{Deserialize, Serialize};
+use scraper_collections::kv_pair_to_query_string;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 struct DailyItem {
@@ -50,14 +51,6 @@ async fn get_page(basic_url: &str, client: &Client, section_id: &str, page: &dyn
     Ok(Document::from(body.as_str()))
 }
 
-// fn kv_pair_to_query_string(params: Vec<(&str, &str)>) -> String {
-fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
-    params
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
-        .collect::<Vec<String>>()
-        .join("&")
-}
 
 fn get_publish_date(title: &str) -> String{
     let date_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
