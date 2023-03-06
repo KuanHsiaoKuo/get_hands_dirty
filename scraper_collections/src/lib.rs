@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::collections::HashMap;
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -21,21 +21,41 @@ pub fn kv_map_to_query_string(params: Vec<(&str, &str)>) -> String {
 
 pub fn get_custom_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
-    headers.insert("Accept", HeaderValue::from_str("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9").unwrap());
-    headers.insert("Accept-Language", HeaderValue::from_str("en").unwrap());
-    headers.insert("Cache-Control", HeaderValue::from_str("max-age=0").unwrap());
-    headers.insert("Connection", HeaderValue::from_str("keep-alive").unwrap());
-    headers.insert("Cookie", HeaderValue::from_str("Hm_lvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675840155; Hm_lpvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675953471").unwrap());
-    headers.insert("Host", HeaderValue::from_str("rustcc.cn").unwrap());
-    headers.insert("Sec-Fetch-Dest", HeaderValue::from_str("document").unwrap());
-    headers.insert("Sec-Fetch-Mode", HeaderValue::from_str("navigate").unwrap());
-    headers.insert("Sec-Fetch-Site", HeaderValue::from_str("none").unwrap());
-    headers.insert("Sec-Fetch-User", HeaderValue::from_str("?1").unwrap());
-    headers.insert("Upgrade-Insecure-Requests", HeaderValue::from_str("1").unwrap());
-    headers.insert("User-Agent", HeaderValue::from_str("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36").unwrap());
-    headers.insert("sec-ch-ua", HeaderValue::from_str("\"Not_A Brand\";v=\"99\", \"Google Chrome\";v=\"109\", \"Chromium\";v=\"109\"").unwrap());
-    headers.insert("sec-ch-ua-mobile", HeaderValue::from_str("?0").unwrap());
-    headers.insert("sec-ch-ua-platform", HeaderValue::from_str("\"macOS\"").unwrap());
+    // headers.insert("Accept", HeaderValue::from_str("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9").unwrap());
+    // headers.insert("Accept-Language", HeaderValue::from_str("en").unwrap());
+    // headers.insert("Cache-Control", HeaderValue::from_str("max-age=0").unwrap());
+    // headers.insert("Connection", HeaderValue::from_str("keep-alive").unwrap());
+    // headers.insert("Cookie", HeaderValue::from_str("Hm_lvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675840155; Hm_lpvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675953471").unwrap());
+    // headers.insert("Host", HeaderValue::from_str("rustcc.cn").unwrap());
+    // headers.insert("Sec-Fetch-Dest", HeaderValue::from_str("document").unwrap());
+    // headers.insert("Sec-Fetch-Mode", HeaderValue::from_str("navigate").unwrap());
+    // headers.insert("Sec-Fetch-Site", HeaderValue::from_str("none").unwrap());
+    // headers.insert("Sec-Fetch-User", HeaderValue::from_str("?1").unwrap());
+    // headers.insert("Upgrade-Insecure-Requests", HeaderValue::from_str("1").unwrap());
+    // headers.insert("User-Agent", HeaderValue::from_str("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36").unwrap());
+    // headers.insert("sec-ch-ua", HeaderValue::from_str("\"Not_A Brand\";v=\"99\", \"Google Chrome\";v=\"109\", \"Chromium\";v=\"109\"").unwrap());
+    // headers.insert("sec-ch-ua-mobile", HeaderValue::from_str("?0").unwrap());
+    // headers.insert("sec-ch-ua-platform", HeaderValue::from_str("\"macOS\"").unwrap());
+    let headers_map: HashMap<&str, &str> = [
+        ("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"),
+        ("Accept-Language", "en"),
+        ("Cache-Control", "max-age=0"),
+        ("Connection", "keep-alive"),
+        ("Cookie", "Hm_lvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675840155; Hm_lpvt_1fd834970f3ad2bab2cb57d4aa2b2e5a=1675953471"),
+        ("Host", "rustcc.cn"),
+        ("Sec-Fetch-Dest", "document"),
+        ("Sec-Fetch-Mode", "navigate"),
+        ("Sec-Fetch-Site", "none"),
+        ("Sec-Fetch-User", "?1"),
+        ("Upgrade-Insecure-Requests", "1"),
+        ("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"),
+        ("sec-ch-ua", "\"Not_A Brand\";v=\"99\", \"Google Chrome\";v=\"109\", \"Chromium\";v=\"109\""),
+        ("sec-ch-ua-mobile", "?0"),
+        ("sec-ch-ua-platform", "\"macOS\""),
+    ].iter().cloned().collect();
+    for (key, value) in headers_map {
+        headers.insert(key, HeaderValue::from_str(value).unwrap());
+    }
     headers
 }
 
