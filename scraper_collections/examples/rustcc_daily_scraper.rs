@@ -1,20 +1,25 @@
 use html2md::parse_html;
 use reqwest::Client;
+// use scraper::Node::Document;
+use select::document::Document;
 use select::node::Node;
+use select::predicate::{Name, Predicate};
+use tokio::io::split;
 
-use scraper_collections::{DailyItem, extract_nodes, get_custom_headers, get_page, get_publish_date, kv_pair_to_query_string};
+use scraper_collections::{
+    aw, DailyPageItem, PageContentItem, extract_nodes,
+    get_custom_headers, get_page, get_publish_date,
+    kv_pair_to_query_string, split_rustcc_daily_content,
+};
 
-async fn page_extractor(page_url: &str, client: &Client) -> Option<Vec<DailyItem>> {
-    // let page_document = get_page(page_url, client).await.unwrap();
-    fn page_node_process(nodes: Vec<Node>) -> Vec<DailyItem> {
+async fn page_extractor(page_url: &str, client: &Client) -> Option<Vec<DailyPageItem>> {
+    fn page_node_process(nodes: Vec<Node>) -> Vec<DailyPageItem> {
         let mut exist_nodes = Vec::new();
         for node in nodes {
             let title = node.text();
             let url = node.attr("href").unwrap_or("");
             let publish_date = get_publish_date(title.as_str());
-            // println!("Title: {}\nLink: {}\n", title, url);
-            let node_item = DailyItem { title, url: url.to_string(), publish_date: publish_date.to_string() };
-            // println!("node_item: {}\n", serde_json::to_string(&node_item).unwrap());
+            let node_item = DailyPageItem { title, url: url.to_string(), publish_date: publish_date.to_string() };
             exist_nodes.push(node_item);
         }
         exist_nodes
@@ -26,16 +31,45 @@ async fn page_extractor(page_url: &str, client: &Client) -> Option<Vec<DailyItem
     Some(processed_nodes)
 }
 
-async fn page_content_extractor(node_url: &str, client: &Client) -> Option<Vec<String>> {
-    // let content_document = get_page(node_url, client).await.unwrap();
+async fn page_content_extractor(node_url: &str, client: &Client) -> Option<Vec<PageContentItem>> {
     let content_class = "detail-body "; // 注意后面的空格
-    fn content_node_process(nodes: Vec<Node>) -> Vec<String> {
+    fn content_node_process(nodes: Vec<Node>) -> Vec<PageContentItem> {
         let mut exist_nodes = Vec::new();
         for node in nodes {
-            let content = node.text();
-            let md_content = parse_html(content.as_str());
-            // println!("node_url: {}\nContent: {}\n", node_url, md_content);
-            exist_nodes.push(md_content);
+            // let content = node.text();
+            // for item in node.descendant(Name("h3")) {
+            //     println!("{}", item.text())
+            // }
+            let content = node.html();
+            // let node_doc = Document::from(content.as_str());
+            let mut item_collect: Vec<String> = vec![];
+            for dec in node.descendants() {
+                // match dec.html().starts_with("<h") {
+                //     start if start => item_collect.push(dec.html()),
+                //     start if !start => {
+                //         println!("{}", dec.html());
+                //     }
+                // }
+                if dec.html().starts_with("<h") {
+                    let temp = item_collect.split_first().unwrap().1.join("\n");
+                    // println!("{}", temp);
+                    let md_temp = parse_html(temp.as_str());
+                    let content_item = PageContentItem{
+                        title: parse_html(item_collect.first().unwrap()),
+                        md_content: md_temp,
+                        publish_page: Default::default(),
+                    };
+                    exist_nodes.push(content_item);
+                    item_collect.clear();
+                }
+                item_collect.push(dec.html());
+            }
+            // for item in node.find(Name("h3")){
+            //     println!("{}", item.text())
+            // }
+            // let md_content = parse_html(content.as_str());
+            // println!("Content: {md_content}");
+            // exist_nodes.push(md_content);
         }
         exist_nodes
     }
@@ -60,15 +94,17 @@ async fn main() -> Result<(), reqwest::Error> {
             ("id".to_string(), section_id.to_string()),
         ];
         let query_string = kv_pair_to_query_string(page_params);
-        // println!("{}", query_string);
         let daily_section_page_url = format!("{}/section?{}", basic_url, query_string);
-        // println!("{}", daily_section_page_url);
         let exist_elements = page_extractor(daily_section_page_url.as_str(), &client).await.unwrap();
         for node in exist_elements {
-            println!("get_node_item: {}\n", serde_json::to_string(&node).unwrap());
+            // println!("get_node_item: {}\n", serde_json::to_string(&node).unwrap());
             let daily_url = format!("{}{}", basic_url, node.url.as_str());
             let page_content = page_content_extractor(daily_url.as_str(), &client).await.unwrap();
-            // println!("get_node_content: {}\n", page_content[0]);
+            for (index, content_node) in page_content.iter().enumerate() {
+                // split_rustcc_daily_content(content)
+                // content_node.publish_page = node.clone();
+                println!("{index}.{daily_url}\n{}", serde_json::to_string(&page_content).unwrap())
+            }
         }
         page += 1;
     }
@@ -78,20 +114,6 @@ async fn main() -> Result<(), reqwest::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // for async fn test
-    macro_rules! aw {
-        ($e:expr) => {
-            tokio_test::block_on($e)
-        };
-    }
-
-    #[test]
-    fn test_get_publish_date() {
-        let title = "【Rust日报】2023-02-22 ";
-        let publish_date = get_publish_date(title);
-        assert_eq!("2023-02-22", publish_date);
-    }
 
     #[test]
     fn test_page_content_extract() {

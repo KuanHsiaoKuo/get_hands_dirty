@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use regex::Regex;
 use reqwest::Client;
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -68,14 +69,24 @@ pub fn get_publish_date(title: &str) -> String {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-pub struct DailyItem {
-    pub title: String,
+pub struct DailyPageItem {
     // 日报标题
-    pub url: String,
+    pub title: String,
     // url 地址
+    pub url: String,
     pub publish_date: String,    // 日报日期
 }
 
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct PageContentItem {
+    // 标题
+    pub title: String,
+    // 具体内容
+    pub md_content: String,
+    // 关联页面
+    pub publish_page: DailyPageItem,
+}
 pub async fn get_page(target_url: &str, client: &Client) -> Result<Document, reqwest::Error> {
     let res = client.get(target_url).headers(get_custom_headers()).send().await?;
     // println!("url: {}", &res.url().as_str());
@@ -142,10 +153,43 @@ pub async fn extract_nodes<F, N>(
         exist_count if exist_count == 0 => {
             println!("No elements found with `{attr_desc}` in `{attr_name}`");
             None
-        },
+        }
         exist_count if exist_count > 0 => {
             Some(node_process(exist_elements))
-        },
+        }
         _ => None
+    }
+}
+
+pub fn split_rustcc_daily_content(content: String) {
+    let spliter = "----------";
+    // let title_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
+    for (index, sec) in content.split(spliter).enumerate() {
+        println!("{index}.\n\n{sec}")
+    }
+    // let sections: Vec<&str> = content.split("----------").collect();
+    // let title = sections[sections.len()-2].split("\n").next().unwrap().trim();
+
+    // println!("Title: {}", title);
+}
+
+// for async fn test
+#[macro_export]
+macro_rules! aw {
+        ($e:expr) => {
+            tokio_test::block_on($e)
+        };
+    }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_publish_date() {
+        let title = "【Rust日报】2023-02-22 ";
+        let publish_date = get_publish_date(title);
+        assert_eq!("2023-02-22", publish_date);
     }
 }
