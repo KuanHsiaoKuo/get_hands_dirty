@@ -68,7 +68,7 @@ pub fn get_publish_date(title: &str) -> String {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct DailyPageItem {
     // 日报标题
     pub title: String,
