@@ -10,11 +10,24 @@ reqwest = "0.11.14"
 regex = "1.7.1"
 scraper = "0.14.0"
 select = "0.6.0"
-serde = { version = "1.0", features = ["derive"] }
+# serde/rbs (required)
+serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
+rbs = { version = "0.1" }
+#rbatis-core和rbatis 版本必须保持一致
+rbatis = "4.0.58"
+# choose one rbdc drivier
+rbdc-sqlite = { version = "0.1", package = "rbdc-sqlite"}
+#rbdc-mysql = { version = "0.1" }
+#rbdc-pg={version="0.1"}
+#rbdc-mssql={version="0.1"}
+#...other database driver...
+#async runtime lib
 tokio = { version = "1.25.0", features = ["full"] }
 html2md = "0.2.14"
-
+# logging(option)
+log = "0.4"
+fast_log = "1.5"
 [dev-dependencies]
 #for async test
 tokio-test = "*"

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use html2md::parse_html;
 use reqwest::Client;
-// use scraper::Node::Document;
 use select::document::Document;
 use select::node::Node;
 use select::predicate::{Name, Predicate};
@@ -40,20 +39,8 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
     fn content_node_process(nodes: Vec<Node>) -> Vec<HashMap<&'static str, String>> {
         let mut exist_nodes = Vec::new();
         for node in nodes {
-            // let content = node.text();
-            // for item in node.descendant(Name("h3")) {
-            //     println!("{}", item.text())
-            // }
-            let content = node.html();
-            // let node_doc = Document::from(content.as_str());
             let mut item_collect: Vec<String> = vec![];
             for dec in node.descendants() {
-                // match dec.html().starts_with("<h") {
-                //     start if start => item_collect.push(dec.html()),
-                //     start if !start => {
-                //         println!("{}", dec.html());
-                //     }
-                // }
                 if dec.html().starts_with("<h") {
                     let temp = item_collect.split_first().unwrap().1.join("\n");
                     // println!("{}", temp);
@@ -65,12 +52,6 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
                 }
                 item_collect.push(dec.html());
             }
-            // for item in node.find(Name("h3")){
-            //     println!("{}", item.text())
-            // }
-            // let md_content = parse_html(content.as_str());
-            // println!("Content: {md_content}");
-            // exist_nodes.push(md_content);
         }
         exist_nodes
     }
