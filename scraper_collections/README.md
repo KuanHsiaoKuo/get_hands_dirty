@@ -26,3 +26,9 @@ flowchart TD
 4["保存为结构体</br>DailyItem"]
 1 --> 2 -->3-->4
 ```
+
+## 参考
+
+### rbatis
+
+- sqlite语句最好在线测试一下：[在线Sqlite查看器|修改器—LZL在线工具](http://lzltool.com/sqlite-viewer)
