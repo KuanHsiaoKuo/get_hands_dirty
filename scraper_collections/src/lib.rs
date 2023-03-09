@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate rbatis;
 use std::collections::HashMap;
 
 use regex::Regex;
@@ -6,7 +8,13 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use select::{document::Document, document::Find, predicate::Attr};
 use select::node::Node;
 use select::selection::Selection;
-use serde::{Deserialize, Serialize};
+
+use log::LevelFilter;
+use rbatis::rbatis::Rbatis;
+use rbatis::rbdc::datetime::FastDateTime;
+use rbatis::dark_std::defer;
+
+mod rustcc_daily_models;
 
 pub fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
     params
@@ -68,25 +76,8 @@ pub fn get_publish_date(title: &str) -> String {
     };
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct DailyPageItem {
-    // 日报标题
-    pub title: String,
-    // url 地址
-    pub url: String,
-    pub publish_date: String,    // 日报日期
-}
 
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct PageContentItem {
-    // 标题
-    pub title: String,
-    // 具体内容
-    pub md_content: String,
-    // 关联页面
-    pub publish_page: DailyPageItem,
-}
 pub async fn get_page(target_url: &str, client: &Client) -> Result<Document, reqwest::Error> {
     let res = client.get(target_url).headers(get_custom_headers()).send().await?;
     // println!("url: {}", &res.url().as_str());
@@ -180,7 +171,6 @@ macro_rules! aw {
             tokio_test::block_on($e)
         };
     }
-
 
 #[cfg(test)]
 mod tests {

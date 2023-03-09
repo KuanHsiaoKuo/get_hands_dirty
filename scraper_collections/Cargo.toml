@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 reqwest = "0.11.14"
 regex = "1.7.1"
-scraper = "0.14.0"
+scraper = "0.15.0"
 select = "0.6.0"
 # serde/rbs (required)
 serde = { version = "1", features = ["derive"] }
