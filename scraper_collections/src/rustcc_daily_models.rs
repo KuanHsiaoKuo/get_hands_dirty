@@ -1,7 +1,11 @@
 use log::LevelFilter;
 use rbatis::{crud, impl_delete, impl_select, impl_select_page, impl_update, Rbatis};
 use rbatis::dark_std::defer;
+use rbatis::rbdc::db::ExecResult;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use crate::aw;
 
 #[derive(serde::Serialize, Deserialize, Debug, Default, Clone)]
 pub struct DailyPageItem {
@@ -26,7 +30,7 @@ pub struct PageContentItem {
 /// example table
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DbDailyPage {
-    pub id: Option<String>,
+    pub id: Option<i32>,
     // 日报标题
     pub title: Option<String>,
     // url 地址
@@ -34,15 +38,15 @@ pub struct DbDailyPage {
     pub publish_date: Option<String>,    // 日报日期
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DbPageContent {
-    pub id: Option<String>,
+    pub id: Option<i32>,
     // 标题
     pub title: Option<String>,
     // 具体内容
     pub md_content: Option<String>,
     // 关联页面
-    pub publish_page: Option<DailyPageItem>,
+    pub publish_page: Option<i32>,
 }
 
 // trait RbatisOperations {
@@ -58,19 +62,102 @@ impl DbDailyPage {
             publish_date: Some(item.publish_date),
         }
     }
+
+    fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
+        let exist = aw!(DbDailyPage::select_by_url(rb, "daily_page", self.url.as_ref().unwrap().as_str()));
+        match exist {
+            Ok(v) => match v {
+                Some(v) => { // v is DbDailyPage type
+                    println!("query_results: {v:?}");
+                    v.id
+                },
+                None => {
+                    println!("not exists");
+                    let data = aw!(DbDailyPage::insert(rb, &self));
+                    match data {
+                        Ok(new_v) => { // v is ExecResult type
+                            println!("insert_result: {new_v:?}");
+                            Some(new_v.last_insert_id.as_u64().unwrap() as i32)
+                        },
+                        Err(e) => {
+                            println!("error inserting: {e:?}");
+                            None
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("error querying: {e:?}");
+                None
+            }
+        }
+    }
+
     fn crud_methods_init() {
         //crud!(BizActivity {},"biz_activity");//custom table name
 //impl_select!(BizActivity{select_all_by_id(table_name:&str,id:&str) => "`where id = #{id}`"}); //custom table name
         crud!(DbDailyPage {}, "daily_page");
-//         crud!(DbDailyPage {}, "RustCC_Daily");
+        //         crud!(DbDailyPage {}, "RustCC_Daily");
         impl_select!(DbDailyPage{select_all_by_id(id:&str,title:&str) => "`where id = #{id} and title = #{title}`"});
         impl_select!(DbDailyPage{select_by_id(id:&str) -> Option => "`where id = #{id} limit 1`"});
+        impl_select!(DbDailyPage{select_by_url(table_name:&str, url:&str) -> Option => "`where url = #{url} limit 1`"});
+        // impl_select!(DbDailyPage{select_by_url(table_name:&str, url:&str) -> Option => "`where url = #{url}`"});
         impl_update!(DbDailyPage{update_by_title(title:&str) => "`where title = '#{title}'`"});
         impl_delete!(DbDailyPage{delete_by_title(title:&str) => "`where name= '#{title}'`"});
         impl_select_page!(DbDailyPage{select_page() =>"
      if !sql.contains('count'):
        `order by create_time desc`"});
         impl_select_page!(DbDailyPage{select_page_by_title(title:&str) =>"
+     if title != null && title != '':
+       `where name != #{title}`
+     if title == '':
+       `where title != ''`"});
+    }
+}
+
+impl DbPageContent{
+    fn new(content: PageContentItem, page: DbDailyPage) -> Self {
+        DbPageContent {
+            id: None,
+            title: Some(content.title),
+            md_content: Some(content.md_content),
+            publish_page: page.id,
+        }
+    }
+
+    fn insert_or_exists(&self, rb: &mut Rbatis) {
+        let exist = aw!(DbPageContent::select_by_title(rb, "daily_page_content", self.title.as_ref().unwrap().as_str()));
+        match exist {
+            Ok(v) => match v {
+                Some(v) => println!("query_results: {v:?}"),
+                None => {
+                    println!("not exists");
+                    let data = aw!(DbPageContent::insert(rb, &self));
+                    match data {
+                        Ok(v) => println!("insert_result: {v:?}"),
+                        Err(e) => println!("error inserting: {e:?}")
+                    }
+                }
+            }
+            Err(e) => println!("error querying: {e:?}")
+        }
+    }
+
+    fn crud_methods_init() {
+        //crud!(BizActivity {},"biz_activity");//custom table name
+//impl_select!(BizActivity{select_all_by_id(table_name:&str,id:&str) => "`where id = #{id}`"}); //custom table name
+        crud!(DbPageContent {}, "daily_page_content");
+        //         crud!(DbPageContent {}, "RustCC_Daily");
+        impl_select!(DbPageContent{select_all_by_id(id:&str,title:&str) => "`where id = #{id} and title = #{title}`"});
+        impl_select!(DbPageContent{select_by_id(id:&str) -> Option => "`where id = #{id} limit 1`"});
+        impl_select!(DbPageContent{select_by_title(table_name:&str, title:&str) -> Option => "`where title = #{title} limit 1`"});
+        // impl_select!(DbPageContent{select_by_url(table_name:&str, url:&str) -> Option => "`where url = #{url}`"});
+        impl_update!(DbPageContent{update_by_title(title:&str) => "`where title = '#{title}'`"});
+        impl_delete!(DbPageContent{delete_by_title(title:&str) => "`where name= '#{title}'`"});
+        impl_select_page!(DbPageContent{select_page() =>"
+     if !sql.contains('count'):
+       `order by create_time desc`"});
+        impl_select_page!(DbPageContent{select_page_by_title(title:&str) =>"
      if title != null && title != '':
        `where name != #{title}`
      if title == '':
@@ -106,8 +193,6 @@ fn main() {}
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-    use crate::aw;
     use super::*;
 
     #[test]
@@ -120,9 +205,10 @@ mod tests {
             .expect("rbatis init fail");
         let mut rb = aw!(init_rustcc_db());
         DbDailyPage::crud_methods_init();
-        let test_daily_page = DailyPageItem{
+        DbPageContent::crud_methods_init();
+        let test_daily_page = DailyPageItem {
             title: "title".to_string(),
-            url: "url".to_string(),
+            url: "url1kk2llk3k4".to_string(),
             publish_date: "publish_data".to_string(),
         };
         let test_db_daily_page = DbDailyPage::new(test_daily_page);
@@ -130,11 +216,24 @@ mod tests {
             test_db_daily_page.clone(),
             {
                 let mut t3 = test_db_daily_page.clone();
-                t3.id = "3".to_string().into();
                 t3
             }
         ];
-        let data = aw!(DbDailyPage::insert(&mut rb, &test_db_daily_page));
-        println!("insert = {}", json!(data));
+        // let data = aw!(DbDailyPage::insert(&mut rb, &test_db_daily_page));
+        // // let exist = aw!(DbDailyPage::select_by_url(&mut rb, "daily_page", test_db_daily_page.url.unwrap().as_str()));
+        // let exist = aw!(DbDailyPage::select_by_url(&mut rb, "daily_page", "url_not_exist"));
+        // match data {
+        //     Ok(v) => println!("insert_result: {v:?}"),
+        //     Err(e) => println!("error inserting: {e:?}")
+        // }
+        // match exist {
+        //     Ok(v) => match v {
+        //         Some(v) => println!("query_results: {v:?}"),
+        //         None => println!("not exists")
+        //     }
+        //     Err(e) => println!("error querying: {e:?}")
+        // }
+        let result = test_db_daily_page.insert_or_exists_id(&mut rb).unwrap();
+        println!("page insert result: {result:?}")
     }
 }

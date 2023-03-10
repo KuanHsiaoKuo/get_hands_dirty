@@ -7,5 +7,13 @@ CREATE TABLE IF NOT EXISTS `daily_page`
     `publish_date` TEXT DEFAULT NULL
 );
 
+CREATE TABLE IF NOT EXISTS `daily_page_content`
+(
+    `id`           INTEGER PRIMARY KEY AUTOINCREMENT,
+    `title`        TEXT DEFAULT NULL,
+    `url`          TEXT DEFAULT NULL,
+    `publish_page` INTEGER DEFAULT NULL
+);
+
 -- INSERT INTO `daily_page`
 -- VALUES (1, '标题1', 'http://xxx', '11-234-');
