@@ -116,30 +116,43 @@ impl DbDailyPage {
 }
 
 impl DbPageContent{
-    fn new(content: PageContentItem, page: DbDailyPage) -> Self {
+    fn new(content: PageContentItem, rb: &mut Rbatis) -> Self {
+        let page_id = DbDailyPage::new(content.publish_page).insert_or_exists_id(rb);
         DbPageContent {
             id: None,
             title: Some(content.title),
             md_content: Some(content.md_content),
-            publish_page: page.id,
+            publish_page: page_id,
         }
     }
 
-    fn insert_or_exists(&self, rb: &mut Rbatis) {
+    fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
         let exist = aw!(DbPageContent::select_by_title(rb, "daily_page_content", self.title.as_ref().unwrap().as_str()));
         match exist {
             Ok(v) => match v {
-                Some(v) => println!("query_results: {v:?}"),
+                Some(v) => { // v is DbPageContent type
+                    println!("query_results: {v:?}");
+                    v.id
+                },
                 None => {
                     println!("not exists");
                     let data = aw!(DbPageContent::insert(rb, &self));
                     match data {
-                        Ok(v) => println!("insert_result: {v:?}"),
-                        Err(e) => println!("error inserting: {e:?}")
+                        Ok(new_v) => { // v is ExecResult type
+                            println!("insert_result: {new_v:?}");
+                            Some(new_v.last_insert_id.as_u64().unwrap() as i32)
+                        },
+                        Err(e) => {
+                            println!("error inserting: {e:?}");
+                            None
+                        }
                     }
                 }
             }
-            Err(e) => println!("error querying: {e:?}")
+            Err(e) => {
+                println!("error querying: {e:?}");
+                None
+            }
         }
     }
 
@@ -211,14 +224,25 @@ mod tests {
             url: "url1kk2llk3k4".to_string(),
             publish_date: "publish_data".to_string(),
         };
-        let test_db_daily_page = DbDailyPage::new(test_daily_page);
-        let tables = [
-            test_db_daily_page.clone(),
-            {
-                let mut t3 = test_db_daily_page.clone();
-                t3
+        let test_page_content = PageContentItem{
+            title: "content_title".to_string(),
+            md_content: "md_content".to_string(),
+            // publish_page: test_daily_page,
+            publish_page: DailyPageItem {
+                title: "title".to_string(),
+                url: "url1kk2llk3k4".to_string(),
+                publish_date: "publish_data".to_string(),
             }
-        ];
+        };
+        let test_db_daily_page = DbDailyPage::new(test_daily_page.clone());
+        let test_db_page_content = DbPageContent::new(test_page_content, &mut rb);
+        // let tables = [
+        //     test_db_daily_page.clone(),
+        //     {
+        //         let mut t3 = test_db_daily_page.clone();
+        //         t3
+        //     }
+        // ];
         // let data = aw!(DbDailyPage::insert(&mut rb, &test_db_daily_page));
         // // let exist = aw!(DbDailyPage::select_by_url(&mut rb, "daily_page", test_db_daily_page.url.unwrap().as_str()));
         // let exist = aw!(DbDailyPage::select_by_url(&mut rb, "daily_page", "url_not_exist"));
@@ -233,7 +257,8 @@ mod tests {
         //     }
         //     Err(e) => println!("error querying: {e:?}")
         // }
-        let result = test_db_daily_page.insert_or_exists_id(&mut rb).unwrap();
+        // let result = test_db_daily_page.insert_or_exists_id(&mut rb).unwrap();
+        let result = test_db_page_content.insert_or_exists_id(&mut rb).unwrap();
         println!("page insert result: {result:?}")
     }
 }

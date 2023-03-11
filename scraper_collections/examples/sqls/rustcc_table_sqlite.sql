@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS `daily_page`
 CREATE TABLE IF NOT EXISTS `daily_page_content`
 (
     `id`           INTEGER PRIMARY KEY AUTOINCREMENT,
-    `title`        TEXT DEFAULT NULL,
-    `url`          TEXT DEFAULT NULL,
+    `title`        TEXT    DEFAULT NULL,
+    `md_content`   TEXT    DEFAULT NULL,
     `publish_page` INTEGER DEFAULT NULL
 );
 
