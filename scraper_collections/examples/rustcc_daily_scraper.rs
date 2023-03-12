@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use html2md::parse_html;
+use rbatis::Rbatis;
 use reqwest::Client;
 use select::document::Document;
 use select::node::Node;
@@ -8,10 +10,12 @@ use select::predicate::{Name, Predicate};
 use tokio::io::split;
 
 use scraper_collections::{
-    aw, DailyPageItem, extract_nodes, get_custom_headers,
+    rustcc_daily_models::{DailyPageItem, PageContentItem}, extract_nodes, get_custom_headers,
     get_page, get_publish_date, kv_pair_to_query_string,
-    PageContentItem, split_rustcc_daily_content,
+    split_rustcc_daily_content,
 };
+use scraper_collections::rustcc_daily_models::{DbDailyPage, DbPageContent, init_rustcc_db};
+
 
 const BASIC_URL: &str = "https://rustcc.cn";
 
@@ -74,11 +78,25 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
     Some(page_content_nodes)
 }
 
+async fn rbatis_init() -> Rbatis{
+    fast_log::init(
+        fast_log::Config::new()
+            .console()
+            .level(log::LevelFilter::Debug),
+    )
+        .expect("rbatis init fail");
+    DbDailyPage::crud_methods_init();
+    DbPageContent::crud_methods_init();
+    let mut rb = init_rustcc_db().await;
+    rb
+}
+
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let client = Client::new();
     let section_id = "f4703117-7e6b-4caf-aa22-a3ad3db6898f";
     let mut page = 1;
+    let mut rb = rbatis_init().await;
     while page < 60 {
         let page_params = vec![
             ("current_page".to_string(), page.to_string()),
@@ -93,7 +111,10 @@ async fn main() -> Result<(), reqwest::Error> {
             let page_content = page_content_extractor(&daily, &client).await.unwrap();
             for (index, content_node) in page_content.iter().enumerate() {
                 // split_rustcc_daily_content(content)
-                println!("{index}.{}\n{}", daily.url, serde_json::to_string(&page_content).unwrap())
+                // println!("{index}.{}\n{}", daily.url, serde_json::to_string(&page_content).unwrap());
+                let new_content = DbPageContent::new(content_node, &mut rb).await;
+                let content_inserted_id = new_content.insert_or_exists_id(&mut rb).await.unwrap();
+                println!("{index}.{content_inserted_id}\n\n{}", serde_json::to_string(&new_content).unwrap());
             }
         }
         page += 1;
@@ -104,6 +125,8 @@ async fn main() -> Result<(), reqwest::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scraper_collections::aw;
+    // use crate::aw;
 
     #[test]
     fn test_page_content_extract() {

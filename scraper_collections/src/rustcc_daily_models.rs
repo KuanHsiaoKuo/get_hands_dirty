@@ -63,8 +63,8 @@ impl DbDailyPage {
         }
     }
 
-    fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
-        let exist = aw!(DbDailyPage::select_by_url(rb, "daily_page", self.url.as_ref().unwrap().as_str()));
+    async fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
+        let exist = DbDailyPage::select_by_url(rb, "daily_page", self.url.as_ref().unwrap().as_str()).await;
         match exist {
             Ok(v) => match v {
                 Some(v) => { // v is DbDailyPage type
@@ -73,7 +73,7 @@ impl DbDailyPage {
                 },
                 None => {
                     println!("not exists");
-                    let data = aw!(DbDailyPage::insert(rb, &self));
+                    let data = DbDailyPage::insert(rb, &self).await;
                     match data {
                         Ok(new_v) => { // v is ExecResult type
                             println!("insert_result: {new_v:?}");
@@ -93,7 +93,7 @@ impl DbDailyPage {
         }
     }
 
-    fn crud_methods_init() {
+    pub fn crud_methods_init() {
         //crud!(BizActivity {},"biz_activity");//custom table name
 //impl_select!(BizActivity{select_all_by_id(table_name:&str,id:&str) => "`where id = #{id}`"}); //custom table name
         crud!(DbDailyPage {}, "daily_page");
@@ -116,18 +116,18 @@ impl DbDailyPage {
 }
 
 impl DbPageContent{
-    fn new(content: PageContentItem, rb: &mut Rbatis) -> Self {
-        let page_id = DbDailyPage::new(content.publish_page).insert_or_exists_id(rb);
+    pub async fn new(content: &PageContentItem, rb: &mut Rbatis) -> Self {
+        let page_id = DbDailyPage::new(content.publish_page.clone()).insert_or_exists_id(rb).await;
         DbPageContent {
             id: None,
-            title: Some(content.title),
-            md_content: Some(content.md_content),
+            title: Some(content.title.clone()),
+            md_content: Some(content.md_content.clone()),
             publish_page: page_id,
         }
     }
 
-    fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
-        let exist = aw!(DbPageContent::select_by_title(rb, "daily_page_content", self.title.as_ref().unwrap().as_str()));
+    pub async fn insert_or_exists_id(&self, rb: &mut Rbatis) -> Option<i32>{
+        let exist = DbPageContent::select_by_title(rb, "daily_page_content", self.title.as_ref().unwrap().as_str()).await;
         match exist {
             Ok(v) => match v {
                 Some(v) => { // v is DbPageContent type
@@ -136,7 +136,7 @@ impl DbPageContent{
                 },
                 None => {
                     println!("not exists");
-                    let data = aw!(DbPageContent::insert(rb, &self));
+                    let data = DbPageContent::insert(rb, &self).await;
                     match data {
                         Ok(new_v) => { // v is ExecResult type
                             println!("insert_result: {new_v:?}");
@@ -156,7 +156,7 @@ impl DbPageContent{
         }
     }
 
-    fn crud_methods_init() {
+    pub fn crud_methods_init() {
         //crud!(BizActivity {},"biz_activity");//custom table name
 //impl_select!(BizActivity{select_all_by_id(table_name:&str,id:&str) => "`where id = #{id}`"}); //custom table name
         crud!(DbPageContent {}, "daily_page_content");
@@ -206,7 +206,8 @@ fn main() {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::*; // 当前文件中的, mod上一级
+    use crate::aw; // 从lib.rs开始
 
     #[test]
     fn test_db_daily_page_operations() {
@@ -228,14 +229,10 @@ mod tests {
             title: "content_title".to_string(),
             md_content: "md_content".to_string(),
             // publish_page: test_daily_page,
-            publish_page: DailyPageItem {
-                title: "title".to_string(),
-                url: "url1kk2llk3k4".to_string(),
-                publish_date: "publish_data".to_string(),
-            }
+            publish_page: test_daily_page.clone()
         };
-        let test_db_daily_page = DbDailyPage::new(test_daily_page.clone());
-        let test_db_page_content = DbPageContent::new(test_page_content, &mut rb);
+        let test_db_daily_page = DbDailyPage::new(test_daily_page);
+        let test_db_page_content = aw!(DbPageContent::new(&test_page_content, &mut rb));
         // let tables = [
         //     test_db_daily_page.clone(),
         //     {
@@ -258,7 +255,7 @@ mod tests {
         //     Err(e) => println!("error querying: {e:?}")
         // }
         // let result = test_db_daily_page.insert_or_exists_id(&mut rb).unwrap();
-        let result = test_db_page_content.insert_or_exists_id(&mut rb).unwrap();
+        let result = aw!(test_db_page_content.insert_or_exists_id(&mut rb)).unwrap();
         println!("page insert result: {result:?}")
     }
 }

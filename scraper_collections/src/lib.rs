@@ -14,7 +14,7 @@ use rbatis::rbatis::Rbatis;
 use rbatis::rbdc::datetime::FastDateTime;
 use rbatis::dark_std::defer;
 
-mod rustcc_daily_models;
+pub mod rustcc_daily_models;
 
 pub fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
     params
