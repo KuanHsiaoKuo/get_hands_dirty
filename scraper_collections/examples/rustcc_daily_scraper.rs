@@ -10,12 +10,11 @@ use select::predicate::{Name, Predicate};
 use tokio::io::split;
 
 use scraper_collections::{
-    rustcc_daily_models::{DailyPageItem, PageContentItem}, extract_nodes, get_custom_headers,
-    get_page, get_publish_date, kv_pair_to_query_string,
+    extract_nodes, get_custom_headers, get_page,
+    get_publish_date, kv_pair_to_query_string, rustcc_daily_models::{DailyPageItem, PageContentItem},
     split_rustcc_daily_content,
 };
 use scraper_collections::rustcc_daily_models::{DbDailyPage, DbPageContent, init_rustcc_db};
-
 
 const BASIC_URL: &str = "https://rustcc.cn";
 
@@ -44,8 +43,9 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
         let mut exist_nodes = Vec::new();
         for node in nodes {
             let mut item_collect: Vec<String> = vec![];
+            let mut need_collect = false;
             for dec in node.descendants() {
-                if dec.html().starts_with("<h") {
+                if dec.html().starts_with("<h") && item_collect.len() > 0 {
                     let temp = item_collect.split_first().unwrap().1.join("\n");
                     // println!("{}", temp);
                     let mut content_item = HashMap::new();
@@ -54,7 +54,18 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
                     exist_nodes.push(content_item);
                     item_collect.clear();
                 }
-                item_collect.push(dec.html());
+                let html_dec = dec.html();
+                let start_flags = vec!["\n\t".to_string(), "\n".to_string()];
+                if start_flags.contains(&html_dec) {
+                    if !need_collect {
+                        need_collect = true;
+                        continue;
+                    }
+                }
+                if need_collect {
+                    item_collect.push(html_dec);
+                    need_collect = false;
+                }
             }
         }
         exist_nodes
@@ -78,7 +89,7 @@ async fn page_content_extractor(page: &DailyPageItem, client: &Client) -> Option
     Some(page_content_nodes)
 }
 
-async fn rbatis_init() -> Rbatis{
+async fn rbatis_init() -> Rbatis {
     fast_log::init(
         fast_log::Config::new()
             .console()
@@ -124,9 +135,11 @@ async fn main() -> Result<(), reqwest::Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use scraper_collections::aw;
-    // use crate::aw;
+
+    use super::*;
+
+// use crate::aw;
 
     #[test]
     fn test_page_content_extract() {

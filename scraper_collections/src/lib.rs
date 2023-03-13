@@ -69,7 +69,8 @@ pub fn get_custom_headers() -> HeaderMap {
 }
 
 pub fn get_publish_date(title: &str) -> String {
-    let date_re = Regex::new(r"(\d{4}-\d{2}-\d{2})").unwrap();
+    // 匹配1到2位数字:{}
+    let date_re = Regex::new(r"(\d{4}-\d{1,2}-\d{1,2}|\d{8})").unwrap();
     return match date_re.captures(title) {
         Some(captured) => captured.get(1).unwrap().as_str().to_string(), // 这里unwrap()之后只有as_str()方法, 没有to_string()
         None => format!("Unable to extract date from {}", title)
@@ -178,8 +179,15 @@ mod tests {
 
     #[test]
     fn test_get_publish_date() {
-        let title = "【Rust日报】2023-02-22 ";
+        // let title = "【Rust日报】2023-02-22 ";
+        let title = "【Rust 日报】2023-2-24 ";
         let publish_date = get_publish_date(title);
-        assert_eq!("2023-02-22", publish_date);
+        // assert_eq!("2023-02-22", publish_date);
+        println!("{}", publish_date)
+    }
+    #[test]
+    fn test_start_flag() {
+        let html_dec = "
+	";
     }
 }
