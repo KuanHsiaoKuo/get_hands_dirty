@@ -51,8 +51,16 @@ mod tests {
     #[test]
     fn test_query_char_news() {
         dotenv().ok();
-        let mut async_conn = aw!(AsyncMysqlConnection::establish(std::env::var("QUERY_DATABASE_URL")?.as_str()))?;
+        let mut async_conn = aw!(AsyncMysqlConnection::establish(std::env::var("QUERY_DATABASE_URL").unwrap().as_str())).unwrap();
         let result = aw!(query_char_news(&mut async_conn));
+        result.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_async_query_char_news() {
+        dotenv().ok();
+        let mut async_conn = AsyncMysqlConnection::establish(std::env::var("QUERY_DATABASE_URL").unwrap().as_str()).await.unwrap();
+        let result = query_char_news(&mut async_conn).await;
         result.unwrap()
     }
 }

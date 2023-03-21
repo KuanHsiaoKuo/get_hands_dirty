@@ -22,4 +22,4 @@ dotenvy = "0.15"
 
 [dev-dependencies]
 #for async test
-tokio-test = "*"
+tokio-test = "0.4.2"
