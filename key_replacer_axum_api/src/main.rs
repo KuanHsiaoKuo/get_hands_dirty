@@ -39,8 +39,8 @@ use tower::{BoxError, ServiceBuilder};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
+use key_replacer_axum_api::control::{query_char_news, create_char};
 
-use key_replacer_axum_api::establish_query_connection;
 
 // use key_replacer_axum_api::establish_query_connection_pool;
 
@@ -59,7 +59,7 @@ async fn main() {
     // let query_pool = establish_query_connection_pool();
     dotenv().ok();
     let mut async_conn = AsyncMysqlConnection::establish(std::env::var("DATABASE_URL").unwrap().as_str()).await.unwrap();
-    let shared_state = Arc::new(AppState { async_conn: Some(async_conn)});
+    let shared_state = Arc::new(AppState { async_conn: Some(async_conn) });
     // let shared_conn = Arc::new(async_conn);
     // let shared_conn = Arc::new(query_db);
 
@@ -102,6 +102,7 @@ struct Info {
     result: Option<String>,
 }
 
+// #[derive(Clone)]
 struct AppState {
     async_conn: Option<AsyncMysqlConnection>,
 }
@@ -121,7 +122,16 @@ async fn keywords_update(
     // 如果传递了id，就是指定更新
     if let Some(content_id) = input.content_id {
         info.result = Some(format!("指定更新{content_id}").to_string());
+        // query_char_news(&mut shared_state.async_conn.take().unwrap()).await.unwrap();
+        // let mut async_conn = shared_state.async_conn.take().unwrap();
+        // let mut new_state = shared_state.clone();
+        // query_char_news(&mut new_state.async_conn.unwrap()).await.unwrap();
+        // shared_state.async_conn = Some(async_conn);
+        let mut query_async_conn = AsyncMysqlConnection::establish(std::env::var("QUERY_DATABASE_URL").unwrap().as_str()).await.unwrap();
+        query_char_news(&mut query_async_conn).await.unwrap();
+        let mut async_conn = AsyncMysqlConnection::establish(std::env::var("DATABASE_URL").unwrap().as_str()).await.unwrap();
+        create_char(&mut async_conn, "title", "content").await;
     }
 
-    Ok(Json(info))
+    Ok((StatusCode::OK, Json(info)))
 }

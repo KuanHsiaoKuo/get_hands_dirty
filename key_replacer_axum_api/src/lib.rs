@@ -1,4 +1,6 @@
-mod control;
+pub mod control;
+pub mod models;
+pub mod schema;
 
 use std::env;
 
