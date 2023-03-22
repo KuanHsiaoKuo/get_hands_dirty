@@ -1,9 +1,10 @@
-use diesel::prelude::*;
 use diesel::dsl::sql_query;
+use diesel::prelude::*;
 use diesel::sql_types::Text;
 // use diesel_async::AsyncMysqlConnection;
-use diesel_async::{RunQueryDsl, AsyncConnection, AsyncMysqlConnection};
-use crate::models::{Post, NewPost};
+use diesel_async::{AsyncConnection, AsyncMysqlConnection, RunQueryDsl};
+
+use crate::models::{NewPost, Post};
 use crate::schema::posts;
 
 #[derive(QueryableByName, PartialEq, Debug)]
@@ -17,7 +18,7 @@ struct QueryChar {
 }
 
 #[derive(QueryableByName, PartialEq, Debug)]
-struct QueryNews{
+struct QueryNews {
     // #[sql_type = "Text"]
     #[diesel(sql_type = Text)]
     news_id: String,
@@ -67,13 +68,35 @@ pub async fn create_char(conn: &mut AsyncMysqlConnection, title: &str, content: 
         .first(conn).await.unwrap()
 }
 
+pub async fn transaction_create_char(conn: &mut AsyncMysqlConnection, title: &str, content: &str) -> Post {
+    let new_post = NewPost { title, content };
+
+    conn.transaction::<_, diesel::result::Error, _>(|conn| {
+        Box::pin(async move {
+            diesel::insert_into(posts::table)
+                .values(&new_post)
+                .execute(conn).await?;
+
+            let created_post = posts::table
+                .order(posts::id.desc())
+                .select(Post::as_select())
+                .first(conn).await?;
+
+            Ok(created_post)
+        })
+    }).await.unwrap()
+}
+
 
 #[cfg(test)]
 mod tests {
     use std::io::stdin;
+
     use dotenvy::dotenv;
-    use super::*;
+
     use crate::aw;
+
+    use super::*;
 
     #[test]
     fn test_query_char_news() {
@@ -93,7 +116,7 @@ mod tests {
 
 
     #[tokio::test]
-    async fn test_create_char(){
+    async fn test_create_char() {
         dotenv().ok();
         let mut async_conn = AsyncMysqlConnection::establish(std::env::var("DATABASE_URL").unwrap().as_str()).await.unwrap();
 
@@ -112,6 +135,16 @@ mod tests {
         let title = "title";
         let content = "content";
         let new_char = create_char(&mut async_conn, title, content).await;
+        println!("\nSaved draft {title} with id {}", new_char.id);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_create_char() {
+        dotenv().ok();
+        let mut async_conn = AsyncMysqlConnection::establish(std::env::var("DATABASE_URL").unwrap().as_str()).await.unwrap();
+        let title = "title";
+        let content = "content";
+        let new_char = transaction_create_char(&mut async_conn, title, content).await;
         println!("\nSaved draft {title} with id {}", new_char.id);
     }
 }

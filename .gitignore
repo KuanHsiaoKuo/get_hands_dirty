@@ -5,3 +5,10 @@
 .DS_Store
 */target/
 */*/target
+
+key_replacer_axum_api/examples/diesel-mysql-demo/.idea/
+key_replacer_axum_api/examples/diesel-mysql-demo/Cargo.lock
+key_replacer_axum_api/examples/diesel-mysql-demo/target/
+key_replacer_axum_api/examples/todos/.idea/
+key_replacer_axum_api/examples/todos/Cargo.lock
+key_replacer_axum_api/examples/todos/target/
