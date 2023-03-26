@@ -1,12 +1,11 @@
+use std::env;
+
+use diesel::prelude::*;
+use dotenvy::dotenv;
+
 pub mod control;
 pub mod models;
 pub mod schema;
-
-use std::env;
-
-use deadpool_diesel::{Manager, Pool, Runtime};
-use diesel::prelude::*;
-use dotenvy::dotenv;
 
 pub fn establish_connection() -> MysqlConnection {
     dotenv().ok();

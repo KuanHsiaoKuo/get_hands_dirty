@@ -36,6 +36,7 @@ pub struct Post {
 #[derive(Insertable)]
 #[diesel(table_name = posts)]
 pub struct NewPost<'a> {
+    pub id: &'a i32,
     pub title: &'a str,
     pub content: &'a str,
 }

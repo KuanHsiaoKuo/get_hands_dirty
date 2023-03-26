@@ -1,0 +1,15 @@
+[package]
+name = "diesel-async-demo"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dotenvy = "0.15.7"
+
+tokio = { version = "1.26.0", features = ["full"] }
+diesel = { version = "2.0.0", features = ["mysql"] }
+#diesel = "2.0.0"
+#deadpool-diesel = "0.4.1"
+diesel-async = { version = "0.2.1", features = ["mysql"] }
