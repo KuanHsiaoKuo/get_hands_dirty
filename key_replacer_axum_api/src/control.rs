@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 
+use deadpool::managed::{Object, Pool};
 use diesel::dsl::sql_query;
 use diesel::prelude::*;
 use diesel::sql_types::{Integer, Text};
 // use diesel_async::AsyncMysqlConnection;
 use diesel_async::{AsyncConnection, AsyncMysqlConnection, RunQueryDsl};
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use deadpool::managed::{Object, Pool};
 use dotenvy::dotenv;
 use tracing::log;
 
@@ -82,7 +82,7 @@ pub async fn query_chunk_posts(
     conn: &mut ConnectionPoolOne,
     limit: usize, offset: usize) -> QueryResult<Vec<QueryNews>> {
     // http://<ip>:<port>/observe/people/<id>
-    let all_news_sql = format!("SELECT news_id, title, content from `news` LIMIT {} OFFSET {}", limit, offset);
+    let all_news_sql = format!("SELECT id, news_id, title, content from `news` LIMIT {} OFFSET {}", limit, offset);
     let query_news = sql_query(all_news_sql).load::<QueryNews>(conn).await?;
 
     // let news_map = query_news.into_iter().map(|item| (item.news_id, item.content)).collect();
@@ -229,5 +229,34 @@ mod tests {
         for (id, name) in result {
             println!("{}: {}", id, name);
         }
+    }
+
+    #[tokio::test]
+    async fn test_transaction_insert_post() {
+        dotenv().ok();
+        let database_url = std::env::var("INSERT_DATABASE_URL").unwrap();
+        let config = AsyncDieselConnectionManager::<AsyncMysqlConnection>::new(database_url);
+        let pool: ConnectionPool = Pool::builder(config).build().unwrap();
+        let mut conn = pool.get().await.unwrap();
+        let id = 11;
+        let title = "test title";
+        let content = "test content";
+        let result = transaction_insert_post(&mut conn, &id, title, content).await;
+        assert_eq!(result.title, title);
+        assert_eq!(result.content, content);
+    }
+
+
+    #[tokio::test]
+    async fn test_total_update_process_with_arc_rw() {
+        dotenv().ok();
+        let query_database_url = std::env::var("QUERY_DATABASE_URL").unwrap();
+        let insert_database_url = std::env::var("INSERT_DATABASE_URL").unwrap();
+        let query_config = AsyncDieselConnectionManager::<AsyncMysqlConnection>::new(query_database_url);
+        let insert_config = AsyncDieselConnectionManager::<AsyncMysqlConnection>::new(insert_database_url);
+        let query_pool: ConnectionPool = Pool::builder(query_config).build().unwrap();
+        let insert_pool: ConnectionPool = Pool::builder(insert_config).build().unwrap();
+        let result = total_update_process_with_arc_rw(&mut query_pool.clone(), &mut insert_pool.clone(), 2).await;
+        result.unwrap();
     }
 }
