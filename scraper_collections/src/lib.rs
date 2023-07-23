@@ -16,6 +16,20 @@ use rbatis::dark_std::defer;
 
 pub mod rustcc_daily_models;
 
+// 加上这个属性来导出，才能在其他地方可见。
+#[macro_export]
+macro_rules! time_it {
+    ($task:expr) => {
+        {
+            let start = std::time::Instant::now();
+            let result = $task.await;
+            let elapsed = start.elapsed();
+            println!("Task took {:?}", elapsed);
+            result
+        }
+    }
+}
+
 pub fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
     params
         .iter()

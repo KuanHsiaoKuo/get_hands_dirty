@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use std::ops::Deref;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use html2md::parse_html;
 use rbatis::Rbatis;
@@ -10,11 +8,12 @@ use select::document::Document;
 use select::node::Node;
 use select::predicate::{Name, Predicate};
 use tokio::io::split;
-use futures;
 
 use scraper_collections::{
-    extract_nodes, get_custom_headers, get_page, get_publish_date, kv_pair_to_query_string,
-    rustcc_daily_models::{DailyPageItem, PageContentItem}, split_rustcc_daily_content, time_it};
+    extract_nodes, get_custom_headers, get_page,
+    get_publish_date, kv_pair_to_query_string, rustcc_daily_models::{DailyPageItem, PageContentItem},
+    split_rustcc_daily_content, time_it
+};
 use scraper_collections::rustcc_daily_models::{DbDailyPage, DbPageContent, init_rustcc_db};
 
 const BASIC_URL: &str = "https://rustcc.cn";
@@ -103,54 +102,38 @@ async fn rbatis_init() -> Rbatis {
     rb
 }
 
+/*
+1. 虽然使用了 tokio::main 宏，这表示 main 函数运行在 Tokio 运行时环境中，可以使用 Rust 的 async/await 语法来进行异步编程。
+2. 代码中虽然使用了异步函数（如 page_extractor, page_content_extractor, DbPageContent::new, new_content.insert_or_exists_id 等），但都是使用 .await 立即等待这些异步操作完成。这种方式被称为"串行异步"，即在一个异步操作完成之前，其他的异步操作不会开始。
+3. 尽管在一个异步函数中，但由于并没有创建新的任务，所以所有操作都是顺序执行的。
+4. 对每一个页面的处理必须等待前一个页面处理完毕，每一个内容的处理也必须等待前一个内容处理完毕。这样会导致程序花费大量的时间等待 IO（网络请求和数据库查询），而 CPU 大部分时间都闲置。
+ */
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
+    let client = Client::new();
     let section_id = "f4703117-7e6b-4caf-aa22-a3ad3db6898f";
     let mut page = 1;
-    // 将 rbatis 的初始化移出循环, 避免连接数过多，而且Rbatis 对象可以跨多个线程共享
-    // let mut rb = rbatis_init().await;
-    let rb = Arc::new(Mutex::new(rbatis_init().await));
+    let mut rb = rbatis_init().await;
     while page < 5 {
-        let client = Client::new();
-        // 给页面使用
-        // let page_rb = Arc::clone(&rb);  // clone the Arc, not the Rbatis
         let page_params = vec![
             ("current_page".to_string(), page.to_string()),
             ("id".to_string(), section_id.to_string()),
         ];
         let query_string = kv_pair_to_query_string(page_params);
         let daily_section_page_url = format!("{}/section?{}", BASIC_URL, query_string);
+        let exist_dailys = page_extractor(daily_section_page_url.as_str(), &client).await.unwrap();
+        for daily in exist_dailys {
+            // println!("get_node_item: {}\n", serde_json::to_string(&node).unwrap());
 
-        // 将每页的任务包装成一个多线程并发任务
-        // 每页并发里面是一个个异步处理
-        let task = time_it!(tokio::spawn({
-
-            // 在 tokio::spawn 调用之前克隆了 rb。这样，rb 就不会在 async move 块中被移动，你就可以在 while 循环的每次迭代中使用新的 rb 实例
-            let page_rb = Arc::clone(&rb);  // clone the Arc, not the Rbatis
-            async move {
-                let exist_dailys = page_extractor(daily_section_page_url.as_str(), &client).await.unwrap();
-                let mut content_tasks = vec![];
-                for daily in exist_dailys {
-                    // 在每个任务中克隆 `client` 和 `rb`, 因为会`async move`
-                    // let mut task_rb = rb.clone();
-                    // 给每个`daily`使用
-                    let daily_rb = Arc::clone(&page_rb);
-                    let task_client = client.clone();
-                    let content_task = tokio::spawn(async move {
-                        let mut task_rb = daily_rb.lock().await;  // lock the mutex to access Rbatis
-                        let page_content = page_content_extractor(&daily, &task_client).await.unwrap();
-                        for (index, content_node) in page_content.iter().enumerate() {
-                            let new_content = DbPageContent::new(content_node, &mut task_rb).await;
-                            let content_inserted_id = new_content.insert_or_exists_id(&mut task_rb).await.unwrap();
-                            println!("{index}.{content_inserted_id}\n\n{}", serde_json::to_string(&new_content).unwrap());
-                        }
-                    });
-                    content_tasks.push(content_task);
-                }
-                futures::future::join_all(content_tasks).await;
+            let page_content = page_content_extractor(&daily, &client).await.unwrap();
+            for (index, content_node) in page_content.iter().enumerate() {
+                // split_rustcc_daily_content(content)
+                // println!("{index}.{}\n{}", daily.url, serde_json::to_string(&page_content).unwrap());
+                let new_content = DbPageContent::new(content_node, &mut rb).await;
+                let content_inserted_id = new_content.insert_or_exists_id(&mut rb).await.unwrap();
+                println!("{index}.{content_inserted_id}\n\n{}", serde_json::to_string(&new_content).unwrap());
             }
-        }));
-
+        }
         page += 1;
     }
     Ok(())
