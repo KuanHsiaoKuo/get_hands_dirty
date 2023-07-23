@@ -18,7 +18,7 @@ pub mod rustcc_daily_models;
 
 // 加上这个属性来导出，才能在其他地方可见。
 #[macro_export]
-macro_rules! time_it {
+macro_rules! async_time_it {
     ($task:expr) => {
         {
             let start = std::time::Instant::now();
@@ -29,6 +29,19 @@ macro_rules! time_it {
         }
     }
 }
+
+#[macro_export]
+macro_rules! sync_time_it {
+    ($task:expr) => {
+        {
+            let start = std::time::Instant::now();
+            $task; // execute the task
+            let elapsed = start.elapsed();
+            println!("Task took {:?}", elapsed);
+        }
+    }
+}
+
 
 pub fn kv_pair_to_query_string(params: Vec<(String, String)>) -> String {
     params

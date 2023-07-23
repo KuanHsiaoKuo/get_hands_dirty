@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use rayon::prelude::*;
 
 use html2md::parse_html;
 use rbatis::Rbatis;
@@ -15,7 +14,7 @@ use futures;
 
 use scraper_collections::{
     extract_nodes, get_custom_headers, get_page, get_publish_date, kv_pair_to_query_string,
-    rustcc_daily_models::{DailyPageItem, PageContentItem}, split_rustcc_daily_content, sync_time_it};
+    rustcc_daily_models::{DailyPageItem, PageContentItem}, split_rustcc_daily_content, async_time_it};
 use scraper_collections::rustcc_daily_models::{DbDailyPage, DbPageContent, init_rustcc_db};
 
 const BASIC_URL: &str = "https://rustcc.cn";
@@ -104,7 +103,6 @@ async fn rbatis_init() -> Rbatis {
     rb
 }
 
-// 1. rayon是同步方式执行，但是这里主函数依旧使用#[tokio::main] + async fn main的方式，是因为目前内部执行的很多函数都是异步的
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     let section_id = "f4703117-7e6b-4caf-aa22-a3ad3db6898f";
@@ -112,34 +110,34 @@ async fn main() -> Result<(), reqwest::Error> {
     // 将 rbatis 的初始化移出循环, 避免连接数过多，而且Rbatis 对象可以跨多个线程共享
     // let mut rb = rbatis_init().await;
     let rb = Arc::new(Mutex::new(rbatis_init().await));
+    while page < 5 {
+        let client = Client::new();
+        // 给页面使用
+        // let page_rb = Arc::clone(&rb);  // clone the Arc, not the Rbatis
+        let page_params = vec![
+            ("current_page".to_string(), page.to_string()),
+            ("id".to_string(), section_id.to_string()),
+        ];
+        let query_string = kv_pair_to_query_string(page_params);
+        let daily_section_page_url = format!("{}/section?{}", BASIC_URL, query_string);
 
-    // 确定我们需要处理的页数，然后创建一个 Vec 来存储这些页数
-    let pages: Vec<usize> = (1..5).collect();
-    sync_time_it!({
-        // 使用 rayon 的并行迭代器来并行处理每一页
-        pages.par_iter().for_each(|&page| {
-            // 创建一个新的 tokio 运行时以处理异步任务
-            let mut rt = tokio::runtime::Runtime::new().unwrap();
+        // 将每页的任务包装成一个多线程并发任务
+        // 每页并发里面是一个个异步处理
+        let task = async_time_it!(tokio::spawn({
 
-            // 使用 tokio 运行时来运行我们的异步代码
-            rt.block_on(async {
-                let client = Client::new();
-                let page_rb = Arc::clone(&rb);
-                let page_params = vec![
-                    ("current_page".to_string(), page.to_string()),
-                    ("id".to_string(), section_id.to_string()),
-                ];
-                let query_string = kv_pair_to_query_string(page_params);
-                let daily_section_page_url = format!("{}/section?{}", BASIC_URL, query_string);
-
+            // 在 tokio::spawn 调用之前克隆了 rb。这样，rb 就不会在 async move 块中被移动，你就可以在 while 循环的每次迭代中使用新的 rb 实例
+            let page_rb = Arc::clone(&rb);  // clone the Arc, not the Rbatis
+            async move {
                 let exist_dailys = page_extractor(daily_section_page_url.as_str(), &client).await.unwrap();
-
                 let mut content_tasks = vec![];
                 for daily in exist_dailys {
+                    // 在每个任务中克隆 `client` 和 `rb`, 因为会`async move`
+                    // let mut task_rb = rb.clone();
+                    // 给每个`daily`使用
                     let daily_rb = Arc::clone(&page_rb);
                     let task_client = client.clone();
                     let content_task = tokio::spawn(async move {
-                        let mut task_rb = daily_rb.lock().await;
+                        let mut task_rb = daily_rb.lock().await;  // lock the mutex to access Rbatis
                         let page_content = page_content_extractor(&daily, &task_client).await.unwrap();
                         for (index, content_node) in page_content.iter().enumerate() {
                             let new_content = DbPageContent::new(content_node, &mut task_rb).await;
@@ -149,12 +147,12 @@ async fn main() -> Result<(), reqwest::Error> {
                     });
                     content_tasks.push(content_task);
                 }
-                // futures::future::join_all(content_tasks).await;
                 futures::future::join_all(content_tasks).await;
-            });
-        });
-    });
+            }
+        }));
 
+        page += 1;
+    }
     Ok(())
 }
 

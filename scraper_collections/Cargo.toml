@@ -9,6 +9,7 @@ edition = "2021"
 futures = "0.3.28"
 reqwest = "0.11.14"
 regex = "1.7.1"
+rayon = "1.7.0"
 scraper = "0.15.0"
 select = "0.6.0"
 # serde/rbs (required)
@@ -18,7 +19,7 @@ rbs = { version = "0.1" }
 #rbatis-core和rbatis 版本必须保持一致
 rbatis = "4.0.58"
 # choose one rbdc drivier
-rbdc-sqlite = { version = "0.1", package = "rbdc-sqlite"}
+rbdc-sqlite = { version = "0.1", package = "rbdc-sqlite" }
 #rbdc-mysql = { version = "0.1" }
 #rbdc-pg={version="0.1"}
 #rbdc-mssql={version="0.1"}
