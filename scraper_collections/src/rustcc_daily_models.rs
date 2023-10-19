@@ -68,11 +68,11 @@ impl DbDailyPage {
         match exist {
             Ok(v) => match v {
                 Some(v) => { // v is DbDailyPage type
-                    println!("query_results: {v:?}");
+                    // println!("query_results: {v:?}");
                     v.id
                 },
                 None => {
-                    println!("not exists");
+                    // println!("not exists");
                     let data = DbDailyPage::insert(rb, &self).await;
                     match data {
                         Ok(new_v) => { // v is ExecResult type

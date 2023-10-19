@@ -21,7 +21,7 @@ use scraper_collections::rustcc_daily_models::{DbDailyPage, DbPageContent, init_
 const BASIC_URL: &str = "https://rustcc.cn";
 const NUM_PRODUCERS: usize = 1;
 const NUM_CONSUMERS: usize = 5;
-const TOTAL_PAGE: usize = 5;
+const TOTAL_PAGE: usize = 65;
 // 对于tokio的 mpsc channel，其实并没有直接的API能够获得当前队列中元素的数量。
 // 一个可能的解决方案是引入一个全局的原子计数器来追踪生产者添加到队列中的元素数量和消费者从队列中移除的元素数量。
 // 使用std::sync::atomic::AtomicUsize来实现这个功能
